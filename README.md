@@ -1,45 +1,67 @@
-# Safari na wildzie 
+# Safari na Wildzie
 ## Parametry i założenia
-$P$ - liczba zasobów\
-$G$ - rozmiar grupy procesów\
-$T$ - liczba procesów\
-$T >> P, T >= (P + 1) * G$\
+$P$ - liczba przewodników/zasobów\
+$G$ - rozmiar grupy turystów/procesów\
+$T$ - liczba turystów/procesów\
+$T >> P$\
+$T \geq  2*G$\
 Priorytet procesów jest ustalany na podstawie zegarów Lamporta, jeśli wartości zegarów są równe, większy priorytet ma proces o niższym numerze id. 
-
-## Używane komunikaty
-* $REQ$ - prośba o dostęp do zasoby\
-* $ACK$ - udzielona zgoda na dostęp do zasobu. Dodatkowo $ACK$ posiada flagę $in\_group$, której wartość ustawiana jest na $True$ gdy proces do której skierowany jest komunikat należy do tej samej grupy.
-* $SYNC$ - rozpoczęcie korzystania z zasobu
-
-Za każdym razem gdy proces zamierza wysłać komunikat, najpierw aktualizuje wartość zegara Lamporta. Za każdym razem gdy proces odbiera komunikat w pierwszej kolejnośći porównuje wartości zegarów, a następnie aktualizuje własny zegar Lamporta.
 
 
 ## Zmienne i stałe używane przez procesy:
 * $id$ - identyfikator procesu
-* $ack\_counter$ - Licznik otrzymanych komunikatów $ACK$
-* $ack\_list$ - Lista procesów które czekają na ich akceptację poprzez komunikat $ACK$.
-* $group\_list$ - Lista procesów w aktualnej grupie wycieczkowej
-* $req\_map$ - Mapę wiążącą priorytety wiadomości $REQ$ z id procesów, które wysłały wiadomości $REQ$ - optymalizacja
+* $lamport$ - wartość zegara lamporta
+* $ack\_group\_counter$ - liczba akceptacji dołączeni do kolejki oczekiwania na grupę
+* $group\_q$ - słownik $id: lamport$ procesów oczekujących na grupę
+* $leaders$ - lista $id$ procesów
+* $in\_group$ - lista $id$ procesów w grupie
+* $ack\_res\_counter$ - liczba akceptacji dołączeni do kolejki oczekiwania na zasób
+* $res\_q$ - słownik $id: lamport$ liderów oczekujących na zasób
+* $break\_prob$ - prawdopodobieństwo wymuszenia przerwy od ubiegania się o zasób
+* $break\_time$ - czas przerwy w ms
+
+
+## Używane komunikaty
+* $REQGROUP$ - prośba o dołączenie do kolejki procesów oczekujących na grupę
+* $ACKGROUP$ - udzielonie zgody na dołączenie do kolejki procesów oczekujących na grupę
+* $GROUPFORMED$ - wiadomość od lidera grupy zawierająca słownik $id: lamport$ procesów w grupie oraz flagę $is\_in\_group$, która ustawiona jest na $true$ gdy odbiorca znajduje się w grupie razem z liderem
+* $REQRES$ - prośba o dołącznie do kolejki leaderów oczekujących na zasób
+* $ACKRES$ - udzielonie zgody na dołącznie do kolejki leaderów oczekujących na zasób
+* $START$ - rozpoczęcie korzystania z zasobu, zawiera czas trawia dostępu do zasobu
+* $END$ - zakończenie korzystania z zasobu
 
 Początkowo procesy znają wartości $P$, $G$, $T$ oraz $id$ wszystkich pozostałych procesów.
+
+
 ## Działanie algorytmu
-### 1. Ubieganie się o dostęp do grupy - algorytm Ricarta-Agrawali
-1. Każdy proces początkowo ubiega się o dostęp do grupy. Procesy wysyłają $REQ$ do wszystkich innych procesów. 
-2. Każdy proces X, który otrzyma komunikat $REQ$ od procesu Y odpowiada w następujący sposób:
-    * Jeśli proces X ma wyższy priorytet niż Y, zapisuje $id$ procesu Y na liście $ack\_list$. Dodatkowo proces X inkrementuje $ack\_counter$ jeśli priorytet, z którym wysłał $REQ$ do procesu Y jest wyższy niż priorytet otrzymanej wiadomości $REQ$ od procesu Y.
-    * Jeśli proces X ma niższy priorytet od procesu Y, proces X wysyła $ACK$ do procesu Y. Proces X nie musi wysyłać widomości $ACK$, jeżeli priorytet otrzymanej od procesu Y wiadomości $REQ$ jest wyższy niż priorytet, z którym proces X wysłał komunikat $REQ$ do procesu Y.
-3. Jeżeli proces otrzyma komunikat $ACK$ inkrementuje $ack\_counter$.
-4. Proces oczekuje, aż wartość jego $ack\_counter == T - 1$, co oznacza, że ma on dostęp do grupy. Następnie proces ustawia wartość $ack\_counter := 0$.
-5. Proces wysyła komunikat $ACK$ z flagą $in\_group := true$ do pierwszych $G - 1 - len(group\_list)$ procesów ze swojej listy $ack\_list$. Proces wysyła komunikat $ACK$ z flagą $in\_group = false$ do kolejnych $G * (P - 1)$ procesów ze swojej listy $ack\_list$. Proces usuwa $id$ wszystkich procesów, do których wysłał komunikat $ACK$ ze swojej (ack_list). 
-6. Proces dodaje $id$ wszystkich procesów, do których wysłał $ACK$ z flagą $in\_group = true$ do swojej $group\_list$.
+### 1. Dobieranie się w grupy (procesy które dobierają się w grupę)
+1. Początkowo każdy proces ubiegający się o zasób wysyła komunikat $REQGROUP$
+2. Proces zlicza otrzymane $ACKGROUP$ w $ack\_group\_counter$. Gdy $ack\_group\_counter = T-1$ proces dodaje się do słownika $group\_q$
+2. Proces reaguje na $REQGROUP$ odsyłając $ACKGROUP$ oraz dodając nadawcę do słownika $group\_q$
+3. Proces sprawdza czy w $group\_q$ znajduje się G procesów. Jeżeli tak to proces o najmniejszym zegarze lamporta zostaje liderem. 
+4. Jeżeli proces jest liderem to: 
+    1. Wypełnia listę $in\_group$ kolejnymi $G$ procesami z najmniejszymi zegarami lamporta
+    2. Wysyła do wszystkich procesów komunikat $GROUPFORMED$ wraz z listą $in\_group$ oraz flagą odpowiednio ustawioną flagą $is\_in\_group$
+    3. Dodaje się do listy $leaders$
+5. Jeżeli proces nie jest liderem to:
+    1. Oczekuje na komunikat $GROUPFORMED$. 
+    2. Po otrzymaniu komunikatu $GROUPFORMED$ z flagą $is\_in\_group=true$ wypełnia listę $in\_group$ procesami z komunikatu.
+6. Procesy reagują na komuniakt $GROUPFORMED$ niezależnie od flagi $is\_in\_group$ usuwając procesy przesłane w komunikacie ze słownika $group\_q$ oraz dodają nadawcę do listy $leaders$
 
 
-## 2. Synchronizacja w grupie
-1. Każdy proces X, który otrzymał komunikat ACK z flagą $in\_group = true$ od procesu Y dodaje $id$ procesu Y do swojej listy $group\_list$.
-2. Jeżeli po wykonaniu punktu **1.5** zachodzi $len(group\_list) == G - 1$ to została zebrana pełna grupa. Proces wysyła komunikat $SYNC$ do procesów z listy $group\_list$ oraz rozpoczyna korzystanie z zasobu
-3. Każdy proces który otrzymał komunikat $SYNC$ rozpoczyna korzystanie z zasobu.
+### 2. Zarządzanie zasobem (procesy które dobrały się w grupę)
+1. Jeżeli proces jest liderem to:
+    1. Wysyła do wszystkich procesów komunikat $REQRES$
+    2. Proces zlicza otrzymane $ACKRES$ w $ack\_res\_counter$. Gdy $ack\_res\_counter = len(leaders)-1$ proces dodaje się do słownika $res\_q$
+    3. Proces reaguje na $REQRES$ dodając nadawcę do słownika $res\_q$ oraz odsyłając $ACKRES$ jeżeli jest w liście $leaders$ 
+    4. Jeżeli proces mieści się w grupie P procesów o najmniejszych wartościach zegara lamporta to wysyła komunikat $START$ do procesów z listy $in\_group$
+4. Jeżeli proces nie jest liderem to oczekuje na komunikat $START$, po którym rozpoczyna korzystanie z zasobu
 
-## 3. Zakończenie korzystania z zasobu
-1. Proces czyści liste $group\_list$
-2. Proces który zakończył korzystanie z zasoby wysyła komunikat $REC$ do wszystkich procesów.
-3. Proces wysyła komunikat $ACK$ do pozostałych $T - G * P$ procesów z listy $ack\_list$, a następnie je z niej usuwa.
+
+### 3. Zakończenie korzystania z zasobu (procesy które zakończyły korzystanie z zasobu)
+1. Jeżeli proces jest liderem to: 
+    1. Wysyła komunikat $END$ do wszystkich procesów
+    2. Procesy reagują na komunikat $END$ usuwając $id$ nadawcy z listy $res\_q$ oraz listy $leaders$
+2. Proces zeruje swoją listę $in\_group$ oraz licznik $ack\_group\_counter$ i $ack\_res_\_counter$
+3. Proces losuje z prawdopodobieństwem $break\_prob$ to czy zostanie na niego nałożona przerwa. Jeżeli tak, to musi odczekać $break\_time$ ms.
+4. Proces ponownie rozpoczyna porces dobierania się w grupy
