@@ -12,11 +12,11 @@ Priorytet procesów jest ustalany na podstawie zegarów Lamporta, jeśli wartoś
 * $id$ - identyfikator procesu
 * $lamport$ - wartość zegara lamporta
 * $ackQueueCounter$ - liczba akceptacji dołączeni do kolejki oczekiwania na grupę
-* $groupQueue$ - wektor par ${id, lamport}$ procesów oczekujących na grupę
+* $groupQueue$ - wektor par $(id, lamport)$ procesów oczekujących na grupę
 * $leaders$ - lista $id$ procesów
 * $in\_group$ - lista $id$ procesów w grupie
 * $ack\_res\_counter$ - liczba akceptacji dołączeni do kolejki oczekiwania na zasób
-* $resQueue$ - wektor par ${id, lamport}$ liderów oczekujących na zasób
+* $resQueue$ - wektor par $(id, lamport)$ liderów oczekujących na zasób
 * $break\_prob$ - prawdopodobieństwo wymuszenia przerwy od ubiegania się o zasób
 * $break\_time$ - czas przerwy w ms
 
