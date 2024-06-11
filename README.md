@@ -12,11 +12,11 @@ Priorytet procesów jest ustalany na podstawie zegarów Lamporta, jeśli wartoś
 * $id$ - identyfikator procesu
 * $lamport$ - wartość zegara lamporta
 * $ackQueueCounter$ - liczba akceptacji dołączeni do kolejki oczekiwania na grupę
-* $groupQueue$ - słownik $id: lamport$ procesów oczekujących na grupę
+* $groupQueue$ - wektor par ${id, lamport}$ procesów oczekujących na grupę
 * $leaders$ - lista $id$ procesów
 * $in\_group$ - lista $id$ procesów w grupie
 * $ack\_res\_counter$ - liczba akceptacji dołączeni do kolejki oczekiwania na zasób
-* $res\_q$ - słownik $id: lamport$ liderów oczekujących na zasób
+* $resQueue$ - wektor par ${id, lamport}$ liderów oczekujących na zasób
 * $break\_prob$ - prawdopodobieństwo wymuszenia przerwy od ubiegania się o zasób
 * $break\_time$ - czas przerwy w ms
 
@@ -52,8 +52,8 @@ Początkowo procesy znają wartości $P$, $G$, $T$ oraz $id$ wszystkich pozosta�
 ### 2. Zarządzanie zasobem (procesy które dobrały się w grupę)
 1. Jeżeli proces jest liderem to:
     1. Wysyła do wszystkich procesów komunikat $REQRES$
-    2. Proces zlicza otrzymane $ACKRES$ w $ack\_res\_counter$. Gdy $ack\_res\_counter = len(leaders)-1$ proces dodaje się do słownika $res\_q$
-    3. Proces reaguje na $REQRES$ dodając nadawcę do słownika $res\_q$ oraz odsyłając $ACKRES$ jeżeli jest w liście $leaders$ 
+    2. Proces zlicza otrzymane $ACKRES$ w $ack\_res\_counter$. Gdy $ack\_res\_counter = len(leaders)-1$ proces dodaje się do słownika $resQueue$
+    3. Proces reaguje na $REQRES$ dodając nadawcę do słownika $resQueue$ oraz odsyłając $ACKRES$ jeżeli jest w liście $leaders$ 
     4. Jeżeli proces mieści się w grupie P procesów o najmniejszych wartościach zegara lamporta to wysyła komunikat $START$ do procesów z listy $in\_group$
 4. Jeżeli proces nie jest liderem to oczekuje na komunikat $START$, po którym rozpoczyna korzystanie z zasobu
 
@@ -61,7 +61,7 @@ Początkowo procesy znają wartości $P$, $G$, $T$ oraz $id$ wszystkich pozosta�
 ### 3. Zakończenie korzystania z zasobu (procesy które zakończyły korzystanie z zasobu)
 1. Jeżeli proces jest liderem to: 
     1. Wysyła komunikat $END$ do wszystkich procesów
-    2. Procesy reagują na komunikat $END$ usuwając $id$ nadawcy z listy $res\_q$ oraz listy $leaders$
+    2. Procesy reagują na komunikat $END$ usuwając $id$ nadawcy z listy $resQueue$ oraz listy $leaders$
 2. Proces zeruje swoją listę $in\_group$ oraz licznik $ackQueueCounter$ i $ack\_res\_counter$
 3. Proces losuje z prawdopodobieństwem $break\_prob$ to czy zostanie na niego nałożona przerwa. Jeżeli tak, to musi odczekać $break\_time$ ms.
 4. Proces ponownie rozpoczyna porces dobierania się w grupy
