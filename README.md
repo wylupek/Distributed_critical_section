@@ -62,6 +62,6 @@ Początkowo procesy znają wartości $P$, $G$, $T$ oraz $id$ wszystkich pozosta�
 1. Jeżeli proces jest liderem to: 
     1. Wysyła komunikat $END$ do wszystkich procesów
     2. Procesy reagują na komunikat $END$ usuwając $id$ nadawcy z listy $res\_q$ oraz listy $leaders$
-2. Proces zeruje swoją listę $in\_group$ oraz licznik $ack\_group\_counter$ i $ack\_res_\_counter$
+2. Proces zeruje swoją listę $in\_group$ oraz licznik $ack\_group\_counter$ i $ack\_res\_counter$
 3. Proces losuje z prawdopodobieństwem $break\_prob$ to czy zostanie na niego nałożona przerwa. Jeżeli tak, to musi odczekać $break\_time$ ms.
 4. Proces ponownie rozpoczyna porces dobierania się w grupy
