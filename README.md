@@ -24,7 +24,7 @@ Priorytet procesów jest ustalany na podstawie zegarów Lamporta, jeśli wartoś
 ## Używane komunikaty
 * $REQGROUP$ - prośba o dołączenie do kolejki procesów oczekujących na grupę
 * $ACKGROUP$ - udzielonie zgody na dołączenie do kolejki procesów oczekujących na grupę
-* $GROUPFORMED$ - wiadomość od lidera grupy zawierająca słownik $id: lamport$ procesów w grupie oraz flagę $isInGroup$, która ustawiona jest na $true$ gdy odbiorca znajduje się w grupie razem z liderem
+* $GROUPFORMED$ - wiadomość od lidera grupy zawierająca listę $inGroup$ procesów w grupie
 * $REQRES$ - prośba o dołącznie do kolejki leaderów oczekujących na zasób
 * $ACKRES$ - udzielonie zgody na dołącznie do kolejki leaderów oczekujących na zasób
 * $START$ - rozpoczęcie korzystania z zasobu, zawiera czas trawia dostępu do zasobu
@@ -41,12 +41,13 @@ Początkowo procesy znają wartości $P$, $G$, $T$ oraz $id$ wszystkich pozosta�
 3. Proces sprawdza czy w $groupQueue$ znajduje się $G$ procesów. Jeżeli tak to proces o najmniejszym zegarze lamporta zostaje liderem. 
 4. Jeżeli proces jest liderem to: 
     1. Wypełnia listę $inGroup$ kolejnymi $G$ procesami z najmniejszymi zegarami lamporta
-    2. Wysyła do wszystkich procesów komunikat $GROUPFORMED$ wraz z odpowiednio ustawioną flagą $isInGroup$
+    2. Wysyła do wszystkich procesów komunikat $GROUPFORMED$ wraz z listą $inGroup$
     3. Dodaje się do listy $leaders$
 5. Jeżeli proces nie jest liderem to:
     1. Oczekuje na komunikat $GROUPFORMED$. 
-    2. Po otrzymaniu komunikatu $GROUPFORMED$ z flagą $isInGroup=true$ wypełnia listę $inGroup$ procesami z komunikatu.
-6. Procesy reagują na komuniakt $GROUPFORMED$ niezależnie od flagi $isInGroup$ usuwając procesy o $G$ najmniejszych zegarach lamporta oraz dodają nadawcę do listy $leaders$
+    2. Jeżeli id procesu znajduje się w liście $inGroup$ przesłanej w komunikacie $GROUPFORMED$ wypełnia swoją listę $inGroup$ procesami z komunikatu.
+6. Procesy reagują na komuniakt $GROUPFORMED$ usuwając procesy przesłane w komunikacie ze słownika $groupQueue$ oraz dodają nadawcę do listy $leaders$
+
 
 
 ### 2. Zarządzanie zasobem (procesy które dobrały się w grupę)

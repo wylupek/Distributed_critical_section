@@ -8,10 +8,10 @@ void mainLoop() {
 
     while (true) {
 	switch (state) {
-	    case WantGroup: 
+	    case WantGroup:
+			// 1.1
 			println("Szukam grupy")
 			pkt = new packet_t;
-			pkt->data = 0;
 
 			pthread_mutex_lock(&lamportMut);
 			lamport++;
@@ -22,17 +22,42 @@ void mainLoop() {
 			sendPacketToAllNoInc(pkt, REQQUEUE);
 			changeState( WaitingForQueue );
 			free(pkt);
-			debug("Wysłałem wszystkie prośby o dołączenie do kolejki");
+			println("Wysłałem wszystkie prośby o dołączenie do kolejki");
 			break;
 
 	    case WaitingForQueue:
 			println("Czekam na wejście do kolejki")
-			pthread_mutex_lock(&groupQueueMut);
-			changeState(InQueue);
+			pthread_mutex_lock(&waitingForQueueMut);
+			changeState(WaitingForGroup);
 			break;
 
-		case InQueue:
+		case WaitingForGroup:
 			println("Czekam w kolejce na uformowanie grupy");
+			pthread_mutex_lock(&waitingForGroupMut);
+			if (leader == true) {
+				pthread_mutex_lock(&lamportMut);
+				for (int i = 0; i < GROUPSIZE; i++) {
+					inGroup[i] = groupQueue[i].id;
+				}
+				pthread_mutex_unlock(&lamportMut);
+
+				// Print group members
+				print("**** Jestem liderem grupy, skład grupy to:");
+				for (int i = 0; i < GROUPSIZE; i++) {
+					printNoTag(" %d", inGroup[i]);
+				} printNoTag("\n");
+
+				for (int i = 0; i < GROUPSIZE; i++) {
+					pkt->inGroup[i] = inGroup[i];
+				}
+
+				pthread_mutex_lock(&lamportMut);
+				lamport++;
+				pkt->ts = lamport;
+				pthread_mutex_unlock(&lamportMut);
+
+				sendPacketToAllNoInc(pkt, GROUPFORMED);
+			}
 			changeState(InFinish);
 			sendPacket(0, rank, END);
 			break;
@@ -43,23 +68,6 @@ void mainLoop() {
 			return;
 		default:
 			return;
-		// case InSection:
-		// 	// tutaj zapewne jakiś muteks albo zmienna warunkowa
-		// 	println("Jestem w sekcji krytycznej")
-		// 	sleep(5);
-		// 	//if ( perc < 25 ) {
-		// 	debug("Perc: %d", perc);
-		// 	println("Wychodzę z sekcji krytycznej")
-		// 	debug("Zmieniam stan na wysyłanie");
-		// 	pkt = new packet_t;
-		// 	pkt->data = perc;
-		// 	for (int i=0;i<=size-1;i++)
-		// 	if (i!=rank)
-		// 		sendPacket( pkt, (rank+1)%size, RELEASE);
-		// 	changeState( InRun );
-		// 	free(pkt);
-		// 	//}
-		// 	break;
 	}
     sleep(SEC_IN_STATE);
     }

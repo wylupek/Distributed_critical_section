@@ -21,13 +21,12 @@
 
 /* tutaj TYLKO zapowiedzi - definicje w main.c */
 extern int size;
-extern int resNum;
-extern int groupSize;
 
 extern int rank;
 extern int ackQueueCounter;
 extern int lamport;
 extern int lamportREQQUEUE;
+extern bool leader;
 extern pthread_t threadKom;
 
 
@@ -51,13 +50,19 @@ extern pthread_t threadKom;
                                             
 */
 #ifdef DEBUG
-#define debug(FORMAT,...) printf("%c[%d;%dm [%d %d]: " FORMAT "%c[%d;%dm\n",  27, (1+(rank/7))%2, 31+(6+rank)%7, rank, lamport, ##__VA_ARGS__, 27,0,37);
+#define debugln(FORMAT,...) printf("%c[%d;%dm [%d %d]: " FORMAT "%c[%d;%dm\n",  27, (1+(rank/7))%2, 31+(6+rank)%7, rank, lamport, ##__VA_ARGS__, 27,0,37);
+#define debug(FORMAT,...) printf("%c[%d;%dm [%d %d]: " FORMAT "%c[%d;%dm",  27, (1+(rank/7))%2, 31+(6+rank)%7, rank, lamport, ##__VA_ARGS__, 27,0,37);
+#define debugNoTag(FORMAT,...) printf("%c[%d;%dm" FORMAT "%c[%d;%dm",  27, (1+(rank/7))%2, 31+(6+rank)%7, ##__VA_ARGS__, 27,0,37);
 #else
-#define debug(...) ;
+#define debugln(...);
+#define debug(...);
+#define debugNoTag(...);
 #endif
 
 // makro println - to samo co debug, ale wyświetla się zawsze
 #define println(FORMAT,...) printf("%c[%d;%dm [%d %d]: " FORMAT "%c[%d;%dm\n",  27, (1+(rank/7))%2, 31+(6+rank)%7, rank, lamport, ##__VA_ARGS__, 27,0,37);
+#define print(FORMAT,...) printf("%c[%d;%dm [%d %d]: " FORMAT "%c[%d;%dm",  27, (1+(rank/7))%2, 31+(6+rank)%7, rank, lamport, ##__VA_ARGS__, 27,0,37);
+#define printNoTag(FORMAT,...) printf("%c[%d;%dm" FORMAT "%c[%d;%dm",  27, (1+(rank/7))%2, 31+(6+rank)%7, ##__VA_ARGS__, 27,0,37);
 
 
 #endif

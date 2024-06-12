@@ -4,7 +4,7 @@
 
 int rank, size, lamport=0, lamportREQQUEUE=0;
 int ackQueueCounter=0;
-int groupSize, resNum; 
+bool leader = false;
 
 pthread_t threadKom;
 
@@ -42,14 +42,6 @@ void check_thread_support(int provided) {
 
 
 int main(int argc, char **argv) {
-    if (argc >= 3) {
-        resNum = atoi(argv[1]);
-        groupSize = atoi(argv[2]);
-    } else {
-        printf("Nie podano argumentów!\n");
-        return 0;
-    }
-
     MPI_Status status;
     int provided;
     MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
@@ -60,7 +52,8 @@ int main(int argc, char **argv) {
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    pthread_mutex_lock(&groupQueueMut);
+    pthread_mutex_lock(&waitingForQueueMut);
+    pthread_mutex_lock(&waitingForGroupMut);
     pthread_create( &threadKom, NULL, startKomWatek , 0);
     mainLoop();
     finalizuj();
