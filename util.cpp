@@ -54,7 +54,7 @@ void sendPacket(packet_t *pkt, int destination, int tag) {
     pkt->ts = lamport;
     pthread_mutex_unlock( &lamportMut );
     MPI_Send( pkt, 1, MPI_PAKIET_T, destination, tag, MPI_COMM_WORLD);
-    // debugln("Wysłano %s do %d", tag2string(tag), destination);
+    // debugln("[S] %s do %d", tag2string(tag), destination);
     if (freepkt) free(pkt);
 }
 

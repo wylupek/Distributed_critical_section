@@ -8,13 +8,9 @@ bool compare(const idLamportPair& a, const idLamportPair& b) {
     return a.lamport < b.lamport;
 }
 
-/* wątek komunikacyjny; zajmuje się odbiorem i reakcją na komunikaty */
 void *startKomWatek(void *ptr) {
     MPI_Status status;
-    int firstId;
-    int groupQueueSize;
     packet_t packet;
-    std::vector<int> vec(GROUPSIZE);
 
     while (state != InFinish) {
 	    // debugln("Czekam na komunikat");
@@ -24,118 +20,119 @@ void *startKomWatek(void *ptr) {
         lamport = std::max(lamport, packet.ts) + 1;
         pthread_mutex_unlock(&lamportMut);
         
-        switch (status.MPI_TAG) {
-        case REQQUEUE:
-            // 1.3
-            // debugln("Otrzymano REQQUEUE od [%d %d]", packet.src, packet.ts);
-
-            pthread_mutex_lock(&groupQueueMut);
-            groupQueue.push_back({packet.src, packet.ts});
-            std::sort(groupQueue.begin(), groupQueue.end(), compare);
-            firstId = groupQueue[0].id;
-            groupQueueSize = groupQueue.size();
-
-            debug("GroupQueue wyglada tak: { ")
-            for (const auto& element : groupQueue) {
-                debugNoTag("[%d %d] ", element.id, element.lamport);
-            } debugNoTag("}\n");
-            pthread_mutex_unlock(&groupQueueMut);
-
-            // 1.4
-            if (state == WaitingForGroup) {
-                if (groupQueueSize >= GROUPSIZE) {
-                    if (firstId == rank) {
-                        leader = 1;
-                        pthread_mutex_unlock(&waitingForGroupMut);
-                    }
-                }
-            }
-
-            sendPacket(0, status.MPI_SOURCE, ACKQUEUE);
-            break;
-
-        case ACKQUEUE:
-            // 1.2
-            // debugln("Otrzymano ACKQUEUE od [%d %d]. Mam już %d", packet.src, packet.ts, ackQueueCounter + 1);
-            ackQueueCounter++;
-            if (ackQueueCounter == size - 1) {
-                ackQueueCounter = 0;
+        switch (state) {
+        case WantGroup:
+            switch (status.MPI_TAG) {
+            case REQQUEUE:
+                // 1.3 Proces zapisuje otrzymane REQQUEUE oraz odsyła ACKQUEUE
                 pthread_mutex_lock(&groupQueueMut);
-                groupQueue.push_back({rank, lamportREQQUEUE});
+                groupQueue.push_back({packet.src, packet.ts});
                 std::sort(groupQueue.begin(), groupQueue.end(), compare);
-                firstId = groupQueue[0].id;
                 pthread_mutex_unlock(&groupQueueMut);
 
-                debug("Otrzymałem wszystkie ACK, GroupQueue wyglada tak: { ")
+                debug("[R wantGroup] REQQUEUE [%d %d] - GroupQueue wyglada tak: { ", packet.src, packet.ts)
                 for (const auto& element : groupQueue) {
                     debugNoTag("[%d %d] ", element.id, element.lamport);
                 } debugNoTag("}\n");
 
-                pthread_mutex_unlock(&waitingForQueueMut);
+                sendPacket(0, status.MPI_SOURCE, ACKQUEUE);
+                break;
 
-                // 1.4
-                if (groupQueue.size() >= GROUPSIZE) {
-                    if (firstId == rank) {
-                        leader = 1;
-                        pthread_mutex_unlock(&waitingForGroupMut);
+            case ACKQUEUE:
+                // 1.2 Proces zlicza ACKQUEUE i jeżeli zliczy size - 1 to przechodzi do stanu WaitingForQueue
+                debugln("[R] ACKQUEUE [%d %d]", packet.src, packet.ts);
+                ackQueueCounter++;
+                if (ackQueueCounter == size - 1) {
+                    ackQueueCounter = 0;
+                    pthread_mutex_lock(&groupQueueMut);
+                    groupQueue.push_back({rank, lamportREQQUEUE});
+                    std::sort(groupQueue.begin(), groupQueue.end(), compare);
+                    pthread_mutex_unlock(&groupQueueMut);
+
+                    debug("[I] Otrzymałem wszystkie ACKQUEUE, GroupQueue wyglada tak: { ")
+                    for (const auto& element : groupQueue) {
+                        debugNoTag("[%d %d] ", element.id, element.lamport);
+                    } debugNoTag("}\n");
+                    
+                    // Odblokowanie przejście do stanu WaitingForGroup
+                    pthread_mutex_unlock(&waitingForQueueMut);
+                }
+                break;
+
+            case GROUPFORMED:
+                debug("[R] GROUPFORMED [%d %d] - Utworzona grupa to:", packet.src, packet.ts);
+                for (int i = 0; i < GROUPSIZE; i++) {
+                    debugNoTag(" %d", packet.inGroup[i]);
+                } debugNoTag("\n");
+                break;
+
+            default:
+                break;
+            }
+            break;
+
+        case WaitingForGroup:
+            switch (status.MPI_TAG) {
+            case REQQUEUE:
+                // 1.3 Proces zapisuje otrzymane REQQUEUE oraz odsyła ACKQUEUE
+                pthread_mutex_lock(&groupQueueMut);
+                groupQueue.push_back({packet.src, packet.ts});
+                std::sort(groupQueue.begin(), groupQueue.end(), compare);
+                pthread_mutex_unlock(&groupQueueMut);
+
+                debug("[R] REQQUEUE [%d %d] - GroupQueue wyglada tak: { ", packet.src, packet.ts)
+                for (const auto& element : groupQueue) {
+                    debugNoTag("[%d %d] ", element.id, element.lamport);
+                } debugNoTag("}\n");
+
+                sendPacket(0, status.MPI_SOURCE, ACKQUEUE);
+                pthread_mutex_unlock(&waitingForGroupMut);
+                break;
+
+            case ACKQUEUE:
+                // Nie dostane ACKQUEUE, bo jestem w tym stanie gdy dostane już wszystkie
+                break;
+
+            case GROUPFORMED:   // Można zrobic ze lider wysyla do siebie groupFormed i tutaj sa usuwane wszystkie rzeczy. W sumie to moze byc nawet mądrzejsze xd
+                debug("[R] GROUPFORMED [%d %d] - Utworzona grupa to:", packet.src, packet.ts);
+                for (int i = 0; i < GROUPSIZE; i++) {
+                    debugNoTag(" %d", packet.inGroup[i]);
+                } debugNoTag("\n");
+
+                for (int i = 0; i < GROUPSIZE; i++) {
+                    if (packet.inGroup[i] == rank) {
+                        // 1.6.2 Wypełnia inGroup
+                        for (int j = 0; j < GROUPSIZE; j++) {
+                            groupMembers[j] = packet.inGroup[j];
+                        }
+                        changeState(Member);
                     }
                 }
+                
+                // 1.6.3 Proces dodaje nadawcę do listy leaders
+                leaders.push_back(packet.src); // Tutaj moze mutex
+
+                // 1.6.4 Proces usuwa członków grupy z groupQueue
+                pthread_mutex_lock(&groupQueueMut);
+                for (int i = 0; i < GROUPSIZE; i++) {
+                    auto it = std::find_if(groupQueue.begin(), groupQueue.end(), [i, &packet](const idLamportPair& s) { 
+                        return s.id == packet.inGroup[i]; 
+                    });
+                    if (it != groupQueue.end()) {
+                        groupQueue.erase(it);
+                    }
+                }
+                pthread_mutex_unlock(&groupQueueMut);
+
+                // Odblokowanie przejście do stanu Member
+                pthread_mutex_unlock(&waitingForGroupMut);
+                break;
+
+            default:
+                break;
             }
             break;
         
-        case GROUPFORMED:
-            debug("Otrzymano GROUPFORMED od [%d %d]. Utworzona grupa to:", packet.src, packet.ts);
-            for (int i = 0; i < GROUPSIZE; i++) {
-                debugNoTag(" %d", packet.inGroup[i]);
-            } debugNoTag("\n");
-
-            // 1.6.1
-            for (int i = 0; i < GROUPSIZE; i++) {
-                if (packet.inGroup[i] == rank) {
-                    debugln("Jestem w grupie z liderem [%d %d]", packet.src, packet.ts)
-                    // 1.6.2
-                    for (int j = 0; j < GROUPSIZE; j++) {
-                        groupMembers[j] = packet.inGroup[j];
-                    }
-
-                    // 1.6.3
-                    leaders.push_back(packet.src);
-                    
-                    leader = 2;
-                    pthread_mutex_unlock(&waitingForGroupMut);
-                    break;
-                }
-            }
-            if (leader == 2) break;
-
-            
-            // 1.7
-            pthread_mutex_lock(&groupQueueMut);
-            for (int i = 0; i < GROUPSIZE; i++) {
-                auto it = std::find_if(groupQueue.begin(), groupQueue.end(), [i, &packet](const idLamportPair& s) { 
-            		return s.id == packet.inGroup[i]; 
-        		});
-                if (it != groupQueue.end()) {
-                    groupQueue.erase(it);
-                }
-            }
-
-            firstId = groupQueue[0].id;
-            groupQueueSize = groupQueue.size();
-            pthread_mutex_unlock(&groupQueueMut);
-
-            if (state == WaitingForGroup && leader == 3) {
-                debugln("Nie mam grupy, ale może teraz ja zostane liderem %d.", firstId);
-                if (groupQueueSize >= GROUPSIZE) {
-                    if (firstId == rank) {
-                        leader = 1;
-                        pthread_mutex_unlock(&waitingForGroupMut);
-                    }
-                }
-            }
-
-            break;
-
         default:
             break;
         }

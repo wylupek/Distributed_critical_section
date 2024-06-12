@@ -3,7 +3,7 @@
 #include "main.h"
 
 #define RESNUM 2
-#define GROUPSIZE 3
+#define GROUPSIZE 2
 
 #define REQQUEUE    1
 #define ACKQUEUE    2
@@ -21,7 +21,7 @@ typedef struct {
 } packet_t;
 #define NITEMS 3
 
-typedef enum {Test, WantGroup, WaitingForQueue, WaitingForGroup, InFinish} state_t;
+typedef enum {Test, WantGroup, WaitingForQueue, Leader, Member, WaitingForGroup, InFinish} state_t;
 
 typedef struct {
     int id;
