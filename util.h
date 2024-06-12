@@ -2,6 +2,9 @@
 #define UTILH
 #include "main.h"
 
+#define RESNUM 2
+#define GROUPSIZE 3
+
 #define REQQUEUE    1
 #define ACKQUEUE    2
 #define GROUPFORMED 3
@@ -10,8 +13,6 @@
 #define START       6
 #define END         7
 
-#define RESNUM 2
-#define GROUPSIZE 2
 /* typ pakietu */
 typedef struct {
     int ts;
@@ -20,22 +21,26 @@ typedef struct {
 } packet_t;
 #define NITEMS 3
 
-typedef enum {WantGroup, WaitingForQueue, WaitingForGroup, InFinish} state_t;
+typedef enum {Test, WantGroup, WaitingForQueue, WaitingForGroup, InFinish} state_t;
 
 typedef struct {
     int id;
     int lamport;
 } idLamportPair;
 
-extern int inGroup[GROUPSIZE];
-extern std::vector<idLamportPair> groupQueue;
+extern MPI_Datatype MPI_PAKIET_T;
 extern state_t state;
+
 extern pthread_mutex_t stateMut;
 extern pthread_mutex_t lamportMut;
 extern pthread_mutex_t groupQueueMut;
 extern pthread_mutex_t waitingForQueueMut;
 extern pthread_mutex_t waitingForGroupMut;
-extern MPI_Datatype MPI_PAKIET_T;
+
+extern std::vector<idLamportPair> groupQueue;
+extern int groupMembers[GROUPSIZE];
+extern std::vector<int> leaders;
+
 
 void inicjuj_typ_pakietu();
 

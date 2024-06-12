@@ -9,8 +9,10 @@ pthread_mutex_t lamportMut = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t groupQueueMut = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t waitingForQueueMut = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t waitingForGroupMut = PTHREAD_MUTEX_INITIALIZER;
+
 std::vector<idLamportPair> groupQueue;
-int inGroup[GROUPSIZE];
+int groupMembers[GROUPSIZE];
+std::vector<int> leaders;
 
 struct tagNames_t {
     const char *name;
@@ -29,9 +31,9 @@ const char *const tag2string(int tag) {
 
 /* tworzy typ MPI_PAKIET_T */
 void inicjuj_typ_pakietu() {
-    int       blocklengths[NITEMS] = {1,1,GROUPSIZE};
+    int blocklengths[NITEMS] = {1,1,GROUPSIZE};
     MPI_Datatype typy[NITEMS] = {MPI_INT, MPI_INT, MPI_INT};
-    MPI_Aint     offsets[NITEMS]; 
+    MPI_Aint offsets[NITEMS]; 
     offsets[0] = offsetof(packet_t, ts);
     offsets[1] = offsetof(packet_t, src);
     offsets[2] = offsetof(packet_t, inGroup);
@@ -52,7 +54,7 @@ void sendPacket(packet_t *pkt, int destination, int tag) {
     pkt->ts = lamport;
     pthread_mutex_unlock( &lamportMut );
     MPI_Send( pkt, 1, MPI_PAKIET_T, destination, tag, MPI_COMM_WORLD);
-    debugln("Wysłano %s do %d", tag2string(tag), destination);
+    // debugln("Wysłano %s do %d", tag2string(tag), destination);
     if (freepkt) free(pkt);
 }
 
@@ -66,7 +68,7 @@ void sendPacketToAllNoInc(packet_t *pkt, int tag) {
             }
             pkt->src = rank;
             MPI_Send( pkt, 1, MPI_PAKIET_T, i, tag, MPI_COMM_WORLD);
-            debugln("Wysłano %s do %d", tag2string(tag), i);
+            // debugln("Wysłano %s do %d", tag2string(tag), i);
             if (freepkt) free(pkt);
         }
 }

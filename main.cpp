@@ -4,7 +4,9 @@
 
 int rank, size, lamport=0, lamportREQQUEUE=0;
 int ackQueueCounter=0;
-bool leader = false;
+
+// 1 - lider    2 - w grupie    3 - dalej czeka
+int leader = 3;
 
 pthread_t threadKom;
 

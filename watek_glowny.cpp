@@ -8,6 +8,30 @@ void mainLoop() {
 
     while (true) {
 	switch (state) {
+		case Test:
+			if (rank != 1) return;
+			packet_t tmp_packet;
+			groupQueue = {{1, 2}, {2, 2}, {3, 2}, {4, 2}, {5, 2}};
+			tmp_packet.inGroup[0] = 2;
+			tmp_packet.inGroup[1] = 3;
+			for (int i = 0; i < GROUPSIZE; i++) {
+				// auto it = std::find_if(groupQueue.begin(), groupQueue.end(), [i](const idLamportPair& s) { return s.id == tmp_packet.inGroup[i]; });
+				auto it = std::find_if(groupQueue.begin(), groupQueue.end(), [i, &tmp_packet](const idLamportPair& s) { 
+            		return s.id == tmp_packet.inGroup[i]; 
+        		});
+				if (it != groupQueue.end()) {
+					groupQueue.erase(it);
+				}
+			}
+
+			for (const auto& element : groupQueue) {
+				std::cout << element.id << " ";
+			}
+			std::cout << groupMembers[2];
+
+			changeState(InFinish);
+			break;
+
 	    case WantGroup:
 			// 1.1
 			println("Szukam grupy")
@@ -34,21 +58,22 @@ void mainLoop() {
 		case WaitingForGroup:
 			println("Czekam w kolejce na uformowanie grupy");
 			pthread_mutex_lock(&waitingForGroupMut);
-			if (leader == true) {
-				pthread_mutex_lock(&lamportMut);
+			// 1.5
+			if (leader == 1) {
+				// 1.5.1
+				pthread_mutex_lock(&groupQueueMut);
 				for (int i = 0; i < GROUPSIZE; i++) {
-					inGroup[i] = groupQueue[i].id;
+					groupMembers[i] = groupQueue[i].id;
 				}
-				pthread_mutex_unlock(&lamportMut);
+				pthread_mutex_unlock(&groupQueueMut);
 
-				// Print group members
-				print("**** Jestem liderem grupy, skład grupy to:");
+				print("* Jestem liderem grupy, skład grupy to:");
 				for (int i = 0; i < GROUPSIZE; i++) {
-					printNoTag(" %d", inGroup[i]);
+					printNoTag(" %d", groupMembers[i]);
 				} printNoTag("\n");
 
 				for (int i = 0; i < GROUPSIZE; i++) {
-					pkt->inGroup[i] = inGroup[i];
+					pkt->inGroup[i] = groupMembers[i];
 				}
 
 				pthread_mutex_lock(&lamportMut);
@@ -56,10 +81,44 @@ void mainLoop() {
 				pkt->ts = lamport;
 				pthread_mutex_unlock(&lamportMut);
 
+				// 1.5.2
 				sendPacketToAllNoInc(pkt, GROUPFORMED);
+
+				// 1.5.3
+				pthread_mutex_lock(&groupQueueMut);
+				for (int i = 0; i < GROUPSIZE; i++) {
+					auto it = std::find_if(groupQueue.begin(), groupQueue.end(), [i](const idLamportPair& s) { return s.id == groupMembers[i]; });
+					if (it != groupQueue.end()) {
+						groupQueue.erase(it);
+					}
+				}
+				pthread_mutex_unlock(&groupQueueMut);
+
+				// 1.5.4
+				leaders.push_back(rank);
 			}
-			changeState(InFinish);
-			sendPacket(0, rank, END);
+
+			// 1.6
+			else if (leader == 2) {
+				print("* Jestem w grupie skład grupy to: ")
+				for (int i = 0; i < GROUPSIZE; i++) {
+					printNoTag(" %d", groupMembers[i]);
+				} printNoTag("\n");
+
+				// 1.6.4
+				pthread_mutex_lock(&groupQueueMut);
+				for (int i = 0; i < GROUPSIZE; i++) {
+					auto it = std::find_if(groupQueue.begin(), groupQueue.end(), [i](const idLamportPair& s) { return s.id == groupMembers[i]; });
+					if (it != groupQueue.end()) {
+						groupQueue.erase(it);
+					}
+				}
+				pthread_mutex_unlock(&groupQueueMut);
+			}
+
+			sleep(3);
+			leader = 3;
+			changeState(WantGroup);
 			break;
 
 		case InFinish:

@@ -21,12 +21,11 @@
 
 /* tutaj TYLKO zapowiedzi - definicje w main.c */
 extern int size;
-
 extern int rank;
 extern int ackQueueCounter;
 extern int lamport;
 extern int lamportREQQUEUE;
-extern bool leader;
+extern int leader;
 extern pthread_t threadKom;
 
 
