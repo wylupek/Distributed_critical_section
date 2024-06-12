@@ -42,7 +42,8 @@ Początkowo procesy znają wartości $P$, $G$, $T$ oraz $id$ wszystkich pozosta�
 4. Jeżeli proces jest liderem to: 
     1. Wypełnia listę $inGroup$ kolejnymi $G$ procesami z najmniejszymi zegarami lamporta
     2. Wysyła do wszystkich procesów komunikat $GROUPFORMED$ wraz z listą $inGroup$
-    3. Dodaje się do listy $leaders$
+    3. Poces usuwa ze słownika $groupQueue$ procesy z listy $inGroup$
+    4. Dodaje się do listy $leaders$
 5. Jeżeli proces nie jest liderem to:
     1. Oczekuje na komunikat $GROUPFORMED$. 
     2. Jeżeli id procesu znajduje się w liście $inGroup$ przesłanej w komunikacie $GROUPFORMED$ wypełnia swoją listę $inGroup$ procesami z komunikatu.
