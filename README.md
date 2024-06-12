@@ -46,9 +46,9 @@ Początkowo procesy znają wartości $P$, $G$, $T$ oraz $id$ wszystkich pozosta�
     4. Dodaje się do listy $leaders$
 5. Jeżeli proces nie jest liderem to:
     1. Oczekuje na komunikat $GROUPFORMED$. 
-    2. Jeżeli id procesu znajduje się w liście $inGroup$ przesłanej w komunikacie $GROUPFORMED$ wypełnia swoją listę $inGroup$ procesami z komunikatu.
+    2. Jeżeli id procesu znajduje się w liście $inGroup$ przesłanej w komunikacie $GROUPFORMED$ wypełnia swoją listę $inGroup$ procesami z komunikatu
     3. Proces dodaje nadawcę do listy $leaders$
-6. Procesy reagują na komuniakt $GROUPFORMED$ usuwając procesy przesłane w komunikacie ze słownika $groupQueue$
+6. Procesy reagują na komuniakt $GROUPFORMED$ usuwając procesy przesłane w komunikacie ze słownika $groupQueue$ oraz sprawdzając czy nie zostaje liderem pozostałych procesów.
 
 
 
