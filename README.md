@@ -5,7 +5,7 @@ $G$ - rozmiar grupy turystów/procesów\
 $T$ - liczba turystów/procesów\
 $T >> P$\
 $T \geq  2*G$\
-Priorytet procesów jest ustalany na podstawie zegarów Lamporta, jeśli wartości zegarów są równe, większy priorytet ma proces o niższym numerze id. 
+Priorytet procesów jest ustalany na podstawie zegarów Lamporta, jeśli wartości zegarów są równe, większy priorytet ma proces o niższym numerze id.
 
 
 ## Zmienne i stałe używane przez procesy:
@@ -38,17 +38,20 @@ Początkowo procesy znają wartości $P$, $G$, $T$ oraz $id$ wszystkich pozosta�
 1. Początkowo każdy proces ubiegający się o zasób wysyła komunikat $REQGROUP$
 2. Proces zlicza otrzymane $ACKGROUP$ w $ackQueueCounter$. Gdy $ackQueueCounter = T-1$ proces dodaje się do słownika $groupQueue$
 2. Proces reaguje na $REQGROUP$ odsyłając $ACKGROUP$ oraz dodając nadawcę do słownika $groupQueue$
-3. Proces sprawdza czy w $groupQueue$ znajduje się $G$ procesów. Jeżeli tak to proces o najmniejszym zegarze lamporta zostaje liderem. 
+3. Proces sprawdza czy w $groupQueue$ znajduje się $G$ procesów. Jeżeli tak to proces o najmniejszym zegarze lamporta zostaje liderem
 4. Jeżeli proces jest liderem to: 
     1. Wypełnia listę $inGroup$ kolejnymi $G$ procesami z najmniejszymi zegarami lamporta
     2. Wysyła do wszystkich procesów komunikat $GROUPFORMED$ wraz z listą $inGroup$
     3. Poces usuwa ze słownika $groupQueue$ procesy z listy $inGroup$
     4. Dodaje się do listy $leaders$
 5. Jeżeli proces nie jest liderem to:
-    1. Oczekuje na komunikat $GROUPFORMED$. 
+    1. Oczekuje na komunikat $GROUPFORMED$
     2. Jeżeli id procesu znajduje się w liście $inGroup$ przesłanej w komunikacie $GROUPFORMED$ wypełnia swoją listę $inGroup$ procesami z komunikatu
     3. Proces dodaje nadawcę do listy $leaders$
-6. Procesy reagują na komuniakt $GROUPFORMED$ usuwając procesy przesłane w komunikacie ze słownika $groupQueue$ oraz sprawdzając czy nie zostaje liderem pozostałych procesów.
+    4. Poces usuwa ze słownika $groupQueue$ procesy z listy $inGroup$
+6. Jeżeli proces dostał komunikat $GROUPFORMED$, ale nie znajduje się w liście $inGroup$ przesłanej w komunikacie to sprawdza czy nie zostaje liderem pozostałych procesów
+
+   
 
 
 
