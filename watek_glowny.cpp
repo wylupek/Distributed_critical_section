@@ -6,7 +6,6 @@ void mainLoop() {
     int tag;
 	int perc;
 	packet_t* pkt = nullptr;
-	int leadersSize;
 
     while (true) {
 	switch (state) {
@@ -70,10 +69,6 @@ void mainLoop() {
 			}
 			pthread_mutex_unlock(&groupQueueMut);
 
-			// 1.5.4 Proces dodaje się do listy leaders
-			pthread_mutex_lock(&leadersMut);
-            leaders.push_back(rank);
-            pthread_mutex_unlock(&leadersMut);
 			changeState(Leader);
 			break;
 		}
@@ -142,7 +137,7 @@ void mainLoop() {
 		break;
 
 	case InSection:
-		println("Jestem w sekcji");
+		println(" ** Jestem w sekcji ** ");
 		sleep(TIMEINSECTION);
 
 		// 3.1 Jeżeli jestem liderem
@@ -153,7 +148,7 @@ void mainLoop() {
 			lamport++;
 			pkt->ts = lamport;
 			pthread_mutex_unlock(&lamportMut);
-			sendPacketToAllNoInc(pkt, END);
+			sendPacketToAllWithMeNoInc(pkt, END);
 			free(pkt);
 		}
 
@@ -165,8 +160,8 @@ void mainLoop() {
 		}
 		
 		// 3.4
-		println("Wychodzę z sekcji");
-		// changeState(WantGroup);
+		println(" ** Wychodzę z sekcji ** ");
+		changeState(WantGroup);
 		break;
 
 

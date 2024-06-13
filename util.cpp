@@ -12,12 +12,10 @@ pthread_mutex_t waitingForGroupMut = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t resQueueMut = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t waitingForResMut = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t waitingForStartMut = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t leadersMut = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t waitingForRelease = PTHREAD_MUTEX_INITIALIZER;
 
 std::vector<idLamportPair> groupQueue;
 int groupMembers[GROUPSIZE];
-std::vector<int> leaders;
 std::vector<idLamportPair> resQueue;
 
 struct tagNames_t {

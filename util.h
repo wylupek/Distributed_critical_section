@@ -2,7 +2,7 @@
 #define UTILH
 #include "main.h"
 
-#define RESNUM 1
+#define RESNUM 2
 #define GROUPSIZE 2
 #define BREAKTIME 5
 #define BREAKPROB 25 // %
@@ -44,12 +44,10 @@ extern pthread_mutex_t waitingForGroupMut;
 extern pthread_mutex_t resQueueMut;
 extern pthread_mutex_t waitingForResMut;
 extern pthread_mutex_t waitingForStartMut;
-extern pthread_mutex_t leadersMut;
 extern pthread_mutex_t waitingForRelease;
 
 extern std::vector<idLamportPair> groupQueue;
 extern int groupMembers[GROUPSIZE];
-extern std::vector<int> leaders;
 extern std::vector<idLamportPair> resQueue;
 
 void inicjuj_typ_pakietu();

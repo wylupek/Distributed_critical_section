@@ -49,10 +49,26 @@ void delFromGroupQueue(const packet_t &packet, int state_no) {
     } debugNoTag("}\n");
 }
 
+void delFromResQueue(const packet_t &packet, int state_no) {
+    pthread_mutex_lock(&resQueueMut);
+
+    auto it = std::find_if(resQueue.begin(), resQueue.end(), [&packet](const idLamportPair& s) { 
+            return s.id == packet.src; 
+    });
+    if (it != resQueue.end()) {
+        resQueue.erase(it);
+    }
+    
+    pthread_mutex_unlock(&resQueueMut);
+    debug("[I%d] resQueue wyglada tak: { ", state_no);
+    for (const auto& element : resQueue) {
+        debugNoTag("[%d %d] ", element.id, element.lamport);
+    } debugNoTag("}\n");
+}
+
 void *startKomWatek(void *ptr) {
     MPI_Status status;
     packet_t packet;
-    int leadersSize;
 
     while (true) {
     debugln("Czekam na komunikat");
@@ -113,11 +129,6 @@ void *startKomWatek(void *ptr) {
                 }
             }
 
-            // 1.6.3 Proces dodaje nadawcę do listy leaders
-            pthread_mutex_lock(&leadersMut);
-            leaders.push_back(packet.src);
-            pthread_mutex_unlock(&leadersMut);
-    
             // 1.6.4 Proces usuwa członków grupy z groupQueue
             delFromGroupQueue(packet, 1);
             break;
@@ -131,6 +142,12 @@ void *startKomWatek(void *ptr) {
         // Nie otrzymam, bo jeszcze nie wysłałem, albo jeżeli to kolejna iteracja, 
         // to żeby się tu znaleźć musiałem otrzymać wszystkie ACKRES
         case ACKRES:
+            break;
+
+        case END:
+            // Proces czekający na sekcje jeszcze raz sprawdza czy może do niej wejść
+            debugln("[R1] END [%d, %d]", packet.src, packet.ts);
+            delFromResQueue(packet, 1);
             break;
 
         default:
@@ -171,11 +188,6 @@ void *startKomWatek(void *ptr) {
                 }
             }
             
-            // 1.6.3 Proces dodaje nadawcę do listy leaders
-            pthread_mutex_lock(&leadersMut);
-            leaders.push_back(packet.src);
-            pthread_mutex_unlock(&leadersMut);
-
             // 1.6.4 Proces usuwa członków grupy z groupQueue
             delFromGroupQueue(packet, 2);
 
@@ -193,6 +205,12 @@ void *startKomWatek(void *ptr) {
         // Nie otrzymam, bo jeszcze nie wysłałem, albo jeżeli to kolejna iteracja, 
         // to żeby się tu znaleźć musiałem otrzymać wszystkie ACKRES
         case ACKRES:
+            break;
+
+        case END:
+            // Proces czekający na sekcje jeszcze raz sprawdza czy może do niej wejść
+            debugln("[R2] END [%d, %d]", packet.src, packet.ts);
+            delFromResQueue(packet, 2);
             break;
 
         default:
@@ -218,11 +236,6 @@ void *startKomWatek(void *ptr) {
                 debugNoTag(" %d", packet.inGroup[i]);
             } debugNoTag("\n");
             
-            // 1.6.3 Proces dodaje nadawcę do listy leaders
-            pthread_mutex_lock(&leadersMut);
-            leaders.push_back(packet.src);
-            pthread_mutex_unlock(&leadersMut);
-
             // 1.6.4 Proces usuwa członków grupy z groupQueue
             delFromGroupQueue(packet, 3);
 
@@ -252,7 +265,12 @@ void *startKomWatek(void *ptr) {
                 
                 pthread_mutex_unlock(&waitingForResMut);
             }
-        
+            break;
+
+        case END:
+            // Proces czekający na sekcje jeszcze raz sprawdza czy może do niej wejść
+            debugln("[R3] END [%d, %d]", packet.src, packet.ts);
+            delFromResQueue(packet, 3);
             break;
 
         default:
@@ -278,11 +296,6 @@ void *startKomWatek(void *ptr) {
                 debugNoTag(" %d", packet.inGroup[i]);
             } debugNoTag("\n");
 
-            // 1.6.3 Proces dodaje nadawcę do listy leaders
-            pthread_mutex_lock(&leadersMut);
-            leaders.push_back(packet.src);
-            pthread_mutex_unlock(&leadersMut);
-
             // 1.6.4 Proces usuwa członków grupy z groupQueue
             delFromGroupQueue(packet, 4);
 
@@ -304,6 +317,12 @@ void *startKomWatek(void *ptr) {
             println("[R4] START [%d %d]", packet.src, packet.ts);
             // Pozwala na zmiane stanu na InSection
             pthread_mutex_unlock(&waitingForStartMut);
+            break;
+
+        case END:
+            // Proces czekający na sekcje jeszcze raz sprawdza czy może do niej wejść
+            debugln("[R4] END [%d, %d]", packet.src, packet.ts);
+            delFromResQueue(packet, 4);
             break;
 
         default:
@@ -328,11 +347,6 @@ void *startKomWatek(void *ptr) {
             for (int i = 0; i < GROUPSIZE; i++) {
                 debugNoTag(" %d", packet.inGroup[i]);
             } debugNoTag("\n");
-            
-            // 1.6.3 Proces dodaje nadawcę do listy leaders
-            pthread_mutex_lock(&leadersMut);
-            leaders.push_back(packet.src);
-            pthread_mutex_unlock(&leadersMut);
 
             // 1.6.4 Proces usuwa członków grupy z groupQueue
             delFromGroupQueue(packet, 5);
@@ -348,8 +362,52 @@ void *startKomWatek(void *ptr) {
             break;
 
         case END:
+            debugln("[R5] END [%d, %d]", packet.src, packet.ts);
+            delFromResQueue(packet, 5);
             // Proces czekający na sekcje jeszcze raz sprawdza czy może do niej wejść
             pthread_mutex_unlock(&waitingForRelease);
+            break;
+
+        default:
+            break;
+        }
+        break;
+
+    case InSection:
+        switch (status.MPI_TAG) {
+        case REQQUEUE:
+            // 1.3 Proces zapisuje otrzymane REQQUEUE oraz odsyła ACKQUEUE niezależnie od stanu
+            addToGroupQueue(packet, 5);
+            sendPacket(0, status.MPI_SOURCE, ACKQUEUE);
+            break;
+
+        // Nie dostane ACKQUEUE, bo jestem w tym stanie gdy dostane już wszystkie
+        case ACKQUEUE:
+            break;
+
+        case GROUPFORMED:   // Można zrobic ze lider wysyla do siebie groupFormed i tutaj sa usuwane wszystkie rzeczy. W sumie to moze byc nawet mądrzejsze xd
+            debug("[R5] GROUPFORMED [%d %d] - Utworzona grupa to:", packet.src, packet.ts);
+            for (int i = 0; i < GROUPSIZE; i++) {
+                debugNoTag(" %d", packet.inGroup[i]);
+            } debugNoTag("\n");
+            
+            // 1.6.4 Proces usuwa członków grupy z groupQueue
+            delFromGroupQueue(packet, 5);
+            break;
+
+        case REQRES:
+            addToResQueue(packet, 5);
+            sendPacket(0, status.MPI_SOURCE, ACKRES);
+            break;
+
+        // Nie dostane ACKQUEUE, bo jestem w tym stanie gdy dostane już wszystkie
+        case ACKRES:
+            break;
+
+        case END:
+            // Proces czekający na sekcje jeszcze raz sprawdza czy może do niej wejść
+            debugln("[R6] END [%d, %d]", packet.src, packet.ts);
+            delFromResQueue(packet, 6);
             break;
 
         default:
