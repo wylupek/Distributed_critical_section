@@ -373,6 +373,7 @@ void *startKomWatek(void *ptr) {
         }
         break;
 
+    case Break:
     case InSection:
         switch (status.MPI_TAG) {
         case REQQUEUE:
@@ -405,7 +406,6 @@ void *startKomWatek(void *ptr) {
             break;
 
         case END:
-            // Proces czekający na sekcje jeszcze raz sprawdza czy może do niej wejść
             debugln("[R6] END [%d, %d]", packet.src, packet.ts);
             delFromResQueue(packet, 6);
             break;

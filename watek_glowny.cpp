@@ -137,7 +137,10 @@ void mainLoop() {
 		break;
 
 	case InSection:
-		println(" ** Jestem w sekcji ** ");
+		print(" ** Jestem w sekcji z ");
+		for (int i = 0; i < GROUPSIZE; i++) {
+			printNoTag(" %d", groupMembers[i]);
+		} printNoTag(" **\n")
 		sleep(TIMEINSECTION);
 
 		// 3.1 Jeżeli jestem liderem
@@ -155,8 +158,9 @@ void mainLoop() {
 		// 3.3
 		perc = random()%100;
 		if (perc < BREAKPROB) {
-			println("Nałożono Przerwę");
-			sleep(BREAKTIME);
+			println(" ** Wychodzę z sekcji ** ");
+			changeState(Break);
+			break;
 		}
 		
 		// 3.4
@@ -164,6 +168,12 @@ void mainLoop() {
 		changeState(WantGroup);
 		break;
 
+
+	case Break:
+		println("Nałożono przerwę");
+		sleep(BREAKTIME);
+		println("Odczekano przerwę");
+		changeState(WantGroup);
 
 	default:
 		break;

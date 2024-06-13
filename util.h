@@ -25,7 +25,7 @@ typedef struct {
 #define NITEMS 3
 
 typedef enum {
-    WantGroup, WaitingForGroup, Leader, Member, WaitingForRes, InSection
+    WantGroup, WaitingForGroup, Leader, Member, WaitingForRes, InSection, Break
 } state_t;
 
 typedef struct {
