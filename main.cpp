@@ -3,7 +3,9 @@
 #include "watek_komunikacyjny.h"
 
 int rank, size, lamport=0, lamportREQQUEUE=0;
+
 int ackQueueCounter=0;
+int ackResCounter=0;
 
 // 1 - lider    2 - w grupie    3 - dalej czeka
 int leader = 3;
@@ -54,8 +56,13 @@ int main(int argc, char **argv) {
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
+
     pthread_mutex_lock(&waitingForQueueMut);
     pthread_mutex_lock(&waitingForGroupMut);
+    pthread_mutex_lock(&waitingForResMut);
+    pthread_mutex_lock(&waitingForStartMut);
+    pthread_mutex_lock(&waitingForRelease);
+
     pthread_create( &threadKom, NULL, startKomWatek , 0);
     mainLoop();
     finalizuj();

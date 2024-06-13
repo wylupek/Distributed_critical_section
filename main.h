@@ -22,12 +22,14 @@
 /* tutaj TYLKO zapowiedzi - definicje w main.c */
 extern int size;
 extern int rank;
-extern int ackQueueCounter;
 extern int lamport;
 extern int lamportREQQUEUE;
 extern int leader;
 extern pthread_t threadKom;
 
+
+extern int ackQueueCounter;
+extern int ackResCounter;
 
 
 /* macro debug - działa jak printf, kiedy zdefiniowano

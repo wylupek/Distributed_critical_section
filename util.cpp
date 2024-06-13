@@ -9,17 +9,23 @@ pthread_mutex_t lamportMut = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t groupQueueMut = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t waitingForQueueMut = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t waitingForGroupMut = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t resQueueMut = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t waitingForResMut = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t waitingForStartMut = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t leadersMut = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t waitingForRelease = PTHREAD_MUTEX_INITIALIZER;
 
 std::vector<idLamportPair> groupQueue;
 int groupMembers[GROUPSIZE];
 std::vector<int> leaders;
+std::vector<idLamportPair> resQueue;
 
 struct tagNames_t {
     const char *name;
     int tag;
 } tagNames[] = {
     {"REQQUEUE", REQQUEUE}, {"ACKQUEUE", ACKQUEUE}, {"GROUPFORMED", GROUPFORMED},
-    {"REQRES", REQRES}, {"ACKRES", ACKRES}
+    {"REQRES", REQRES}, {"ACKRES", ACKRES}, {"START", START}, {"END", END}
 };
 
 const char *const tag2string(int tag) {
@@ -54,7 +60,19 @@ void sendPacket(packet_t *pkt, int destination, int tag) {
     pkt->ts = lamport;
     pthread_mutex_unlock( &lamportMut );
     MPI_Send( pkt, 1, MPI_PAKIET_T, destination, tag, MPI_COMM_WORLD);
-    // debugln("[S] %s do %d", tag2string(tag), destination);
+    debugln("[S] %s do %d", tag2string(tag), destination);
+    if (freepkt) free(pkt);
+}
+
+void sendPacketNoInc(packet_t *pkt, int destination, int tag) {
+    int freepkt = 0;
+     if (pkt == nullptr) { 
+        pkt = (packet_t*)malloc(sizeof(packet_t)); 
+        freepkt = 1;
+    }
+    pkt->src = rank;
+    MPI_Send( pkt, 1, MPI_PAKIET_T, destination, tag, MPI_COMM_WORLD);
+    debugln("[S] %s do %d", tag2string(tag), destination);
     if (freepkt) free(pkt);
 }
 
@@ -68,17 +86,21 @@ void sendPacketToAllNoInc(packet_t *pkt, int tag) {
             }
             pkt->src = rank;
             MPI_Send( pkt, 1, MPI_PAKIET_T, i, tag, MPI_COMM_WORLD);
-            // debugln("Wysłano %s do %d", tag2string(tag), i);
+            debugln("Wysłano %s do %d", tag2string(tag), i);
             if (freepkt) free(pkt);
         }
 }
 
+void sendPacketToAllWithMeNoInc(packet_t *pkt, int tag) {
+    for (int i=0; i<= size - 1; i++) {
+        pkt->src = rank;
+        MPI_Send( pkt, 1, MPI_PAKIET_T, i, tag, MPI_COMM_WORLD);
+        debugln("Wysłano %s do %d", tag2string(tag), i);
+    }
+}
+
 void changeState( state_t newState ) {
     pthread_mutex_lock( &stateMut );
-    if (state==InFinish) { 
-	    pthread_mutex_unlock( &stateMut );
-        return;
-    }
     state = newState;
     pthread_mutex_unlock( &stateMut );
 }
