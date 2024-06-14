@@ -1,65 +1,60 @@
 #include "main.h"
-#include "watek_glowny.h"
+#include "state_thread.h"
 
 void mainLoop() {
     srandom(rank);
-    int tag;
-	int perc;
-	packet_t* pkt = nullptr;
+	packet_t* packet = nullptr;
 
     while (true) {
 	switch (state) {
 	case WantGroup:
-		// 1.1 Proces wysyła do wszystich REQQUEUE i przechodzi do stanu WaitingForQueue
-		println("Szukam grupy - wysyłam REQQUEUE");
-		pkt = new packet_t;
-
+		/* Sending REQQUEUE to all */
+		println("Looking for group - sending REQQUEUE");
+		packet = new packet_t;
 		pthread_mutex_lock(&lamportMut);
 		lamport++;
-		pkt->ts = lamport;
+		packet->ts = lamport;
 		lamportREQQUEUE = lamport;
 		pthread_mutex_unlock(&lamportMut);
-		sendPacketToAllNoInc(pkt, REQQUEUE);
+		sendPacketToAllNoInc(packet, REQQUEUE);
+		free(packet);
+		println("REQQUEUE sent");
 
-		free(pkt);
-		println("Wysłałem wszystkie REQQUEUE");
-
+		/* Waiting for all ACKQUEUE */
 		pthread_mutex_lock(&waitingForQueueMut);
 		changeState(WaitingForGroup);
+		println("Waiting for the group to form");
 		break;
 
 	case WaitingForGroup:
-		println("Czekam na uformowanie grupy");
-		
-		// 1.4 i 1.7 Proces sprawdza czy nie jest liderem
-		println("Sprawdzam czy jestem liderem");
+		println("Checking if im not the leader");
+		/* If leader */
 		if (groupQueue.size() >= GROUPSIZE && groupQueue[0].id == rank) {
-			// 1.5 Proces jest liderem
-			// 1.5.1 Wypełnia inGroup
+			/* Filling groupMembers */
 			pthread_mutex_lock(&groupQueueMut);
 			for (int i = 0; i < GROUPSIZE; i++) {
 				groupMembers[i] = groupQueue[i].id;
 			}
 			pthread_mutex_unlock(&groupQueueMut);
 
-			print("* Jestem liderem grupy, skład grupy to:");
+			print("* Im the leader, group members are:");
 			for (int i = 0; i < GROUPSIZE; i++) {
 				printNoTag(" %d", groupMembers[i]);
-			} printNoTag("\n");
-
-			// 1.5.2 Proces wysyła do wszystkich GROUPFORMED z listą groupMembers
+			} printNoTag(" *\n");
+			
+			/* Sending GROUPFORMED to all*/
 			for (int i = 0; i < GROUPSIZE; i++) {
-				pkt->inGroup[i] = groupMembers[i];
+				packet->inGroup[i] = groupMembers[i];
 			}
 			pthread_mutex_lock(&lamportMut);
 			lamport++;
-			pkt->ts = lamport;
+			packet->ts = lamport;
 			pthread_mutex_unlock(&lamportMut);
-			sendPacketToAllNoInc(pkt, GROUPFORMED);
-			free(pkt);
-			println("Wysłałem wszystkim GROUPFORMED");
+			sendPacketToAllNoInc(packet, GROUPFORMED);
+			free(packet);
+			println("GROUPFORMED sent");
 
-			// 1.5.3 Proces usuwa z groupQueueMut procesy z list groupMembers
+			/* Remove group members from the queue of processes waiting for the group */
 			pthread_mutex_lock(&groupQueueMut);
 			for (int i = 0; i < GROUPSIZE; i++) {
 				auto it = std::find_if(groupQueue.begin(), groupQueue.end(), [i](const idLamportPair& s) { return s.id == groupMembers[i]; });
@@ -68,116 +63,120 @@ void mainLoop() {
 				}
 			}
 			pthread_mutex_unlock(&groupQueueMut);
-
 			changeState(Leader);
 			break;
 		}
+		/* Unlocks when com_thread receives GROUPFORMED or REQQUEUE */
 		pthread_mutex_lock(&waitingForGroupMut);
 		break;
 
 	case Leader:
-		// 2.1
-		// 2.1.1 Proces wysyła do wszystich REQQUEUE i przechodzi do stanu WaitingForQueue
-		println("Wysyłam REQRES");
-		
-		pkt = new packet_t;
-
+		/* Sending REQRES to all */
+		println("Sending REQRES");
+		packet = new packet_t;
 		pthread_mutex_lock(&lamportMut);
 		lamport++;
-		pkt->ts = lamport;
+		packet->ts = lamport;
 		lamportREQQUEUE = lamport;
 		pthread_mutex_unlock(&lamportMut);
-		sendPacketToAllNoInc(pkt, REQRES);
-		free(pkt);
-		println("Wysłałem wszystkie REQRES");
+		sendPacketToAllNoInc(packet, REQRES);
+		free(packet);
+		println("REQRES sent");
+
+		/* Unlocks after receiving all ACKRES */
 		pthread_mutex_lock(&waitingForResMut);
 		changeState(WaitingForRes);
 		break;
 
 	case WaitingForRes:
-		print("Sprawdzam czy mogę korzystać z zasobu, procesy w ResQueue: { ");
+		print("Checking if I can use the resource, leaders waiting for the resource are: { ");
 		for (const auto& element : resQueue) {
 			printNoTag("[%d %d] ", element.id, element.lamport);
 		}printNoTag("}\n");
 
 		pthread_mutex_lock(&resQueueMut);
 		for (int i = 0; i < RESNUM; i++) {
+			/* If I'm below RESNUM in queue, i can start*/
 			if (resQueue[i].id == rank) {
-				// Wysłanie START
-				pkt = new packet_t;
+				/* Sending START to group members */
+				println("Group can enter critical section, sending START to group members");
+				packet = new packet_t;
 				pthread_mutex_lock(&lamportMut);
 				lamport++;
-				pkt->ts = lamport;
+				packet->ts = lamport;
 				pthread_mutex_unlock(&lamportMut);
-				println("Grupa może korzystać z zasobu, wysyłam start");
 				for (int j = 0; j < GROUPSIZE; j ++) {
-					sendPacket(pkt, groupMembers[j], START);
+					sendPacket(packet, groupMembers[j], START);
 				}
-				free(pkt);
-
-				println("Wchodzę do sekcji");
+				free(packet);
+				println("START sent, I can enter critical section now");
 				changeState(InSection);
 				pthread_mutex_unlock(&waitingForRelease);
 				break;
 			}
 		}
 		pthread_mutex_unlock(&resQueueMut);
+
+		/* Unlocks after receiving END */
 		pthread_mutex_lock(&waitingForRelease);
 		break;
 
 	case Member:
-		print("* Jestem członkiem grupy i czekam na start, skład grupy to:");
+		print("* I found a group and I'm waiting for start, the group members are:");
 		for (int i = 0; i < GROUPSIZE; i++) {
 			printNoTag(" %d", groupMembers[i]);
-		} printNoTag("\n");
+		} printNoTag(" *\n");
 
+		/* Unlocks after receiving START */
 		pthread_mutex_lock(&waitingForStartMut);
-		println("Wchodzę do sekcji");
+		println("I can enter critical section now");
 		changeState(InSection);
 		break;
 
 	case InSection:
-		print(" ** Jestem w sekcji z ");
+		print(" ** Im in critical section with:");
 		for (int i = 0; i < GROUPSIZE; i++) {
 			printNoTag(" %d", groupMembers[i]);
 		} printNoTag(" **\n")
+
+		/* Perform some action */
 		sleep(TIMEINSECTION);
 
-		// 3.1 Jeżeli jestem liderem
+		/* If I'm a leader */
 		if (groupMembers[0] == rank) {
-			println("Wysyłam END do wszystkich procesów");
-			pkt = new packet_t;
+			/* Send END to all */
+			println("Sending END");
+			packet = new packet_t;
 			pthread_mutex_lock(&lamportMut);
 			lamport++;
-			pkt->ts = lamport;
+			packet->ts = lamport;
 			pthread_mutex_unlock(&lamportMut);
-			sendPacketToAllWithMeNoInc(pkt, END);
-			free(pkt);
+			sendPacketToAllWithMeNoInc(packet, END);
+			free(packet);
 		}
 
-		// 3.3
-		perc = random()%100;
-		if (perc < BREAKPROB) {
-			println(" ** Wychodzę z sekcji ** ");
+		println(" ** Leaving critical section ** ");
+		/* If a break has been imposed */
+		if (random() % 100 < BREAKPROB) {
 			changeState(Break);
 			break;
 		}
-		
-		// 3.4
-		println(" ** Wychodzę z sekcji ** ");
+		/* Else */
 		changeState(WantGroup);
 		break;
 
 
 	case Break:
-		println("Nałożono przerwę");
+		println("Break has been imposed");
 		sleep(BREAKTIME);
-		println("Odczekano przerwę");
+		println("The break has been waited");
 		changeState(WantGroup);
 
 	default:
 		break;
 	}
+
+	/* Sleep for better debuging */
     sleep(SEC_IN_STATE);
     }
 }

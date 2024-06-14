@@ -18,5 +18,5 @@ clean:
 run: main Makefile
 	mpirun -oversubscribe -np 9 ./main
 
-debugRun: debug Makefile
+runDebug: debug Makefile
 	mpirun -oversubscribe -np 9 ./main

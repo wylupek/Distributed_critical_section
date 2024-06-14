@@ -1,24 +1,26 @@
-# Safari na Wildzie
+# Rozproszony dostęp do sekcji krytycznej
+
 ## Parametry i założenia
-$P$ - liczba przewodników/zasobów\
-$G$ - rozmiar grupy turystów/procesów\
-$T$ - liczba turystów/procesów\
-$T >> P$\
-$T \geq  2*G$\
+Dostęp do $RESNUM$ nierozróżnialnych sekcji krytycznych odbywa się w grupach $GROUPSIZE$ procesów.\
+$RESNUM$ - liczba zasobów\
+$GROUPSIZE$ - rozmiar grupy procesów\
+$SIZE$ - liczba procesów\
+$SIZE >> RESNUM$\
+$SIZE \geq  2*GROUPSIZE$\
 Priorytet procesów jest ustalany na podstawie zegarów Lamporta, jeśli wartości zegarów są równe, większy priorytet ma proces o niższym numerze id.
 
 
 ## Zmienne i stałe używane przez procesy:
-* $id$ - identyfikator procesu
+* $rank$ - identyfikator procesu
 * $lamport$ - wartość zegara lamporta
-* $ackQueueCounter$ - liczba akceptacji dołączeni do kolejki oczekiwania na grupę
+* $ackQueueCounter$ - liczba akceptacji dołączenia do kolejki oczekiwania na grupę
 * $groupQueue$ - wektor par $(id, lamport)$ procesów oczekujących na grupę
 * $groupMembers$ - lista $id$ procesów w grupie
-* $ackResCounter$ - liczba akceptacji dołączeni do kolejki oczekiwania na zasób
+* $ackResCounter$ - liczba akceptacji dołączenia do kolejki oczekiwania na zasób
 * $resQueue$ - wektor par $(id, lamport)$ liderów oczekujących na zasób
-* $breakProb$ - prawdopodobieństwo wymuszenia przerwy od ubiegania się o zasób
-* $breakTime$ - czas przerwy w sekundach
-
+* $BREAKTIME$ - czas trania dostępu do zasobu
+* $BREAKPROB$ - prawdopodobieństwo wymuszenia przerwy od ubiegania się o zasób
+* $BREAKTIME$ - czas przerwy w sekundach
 
 ## Używane komunikaty
 * $REQGROUP$ - prośba o dołączenie do kolejki procesów oczekujących na grupę
@@ -29,17 +31,18 @@ Priorytet procesów jest ustalany na podstawie zegarów Lamporta, jeśli wartoś
 * $START$ - rozpoczęcie korzystania z zasobu, zawiera czas trawia dostępu do zasobu
 * $END$ - zakończenie korzystania z zasobu
 
-Początkowo procesy znają wartości $P$, $G$, $T$ oraz $id$ wszystkich pozostałych procesów.
+Początkowo procesy znają wartości $RESNUM$, $GROUPSIZE$ oraz $SIZE$.
+
 
 
 ## Działanie algorytmu
 ### 1. Dobieranie się w grupy (procesy które dobierają się w grupę)
 1. Początkowo każdy proces ubiegający się o zasób wysyła komunikat $REQGROUP$
-2. Proces zlicza otrzymane $ACKGROUP$ w $ackQueueCounter$. Gdy $ackQueueCounter = T-1$ proces dodaje się do słownika $groupQueue$
+2. Proces zlicza otrzymane $ACKGROUP$ w $ackQueueCounter$. Gdy $ackQueueCounter = SIZE-1$ proces dodaje się do słownika $groupQueue$
 2. Proces reaguje na $REQGROUP$ odsyłając $ACKGROUP$ oraz dodając nadawcę do słownika $groupQueue$
-3. Proces sprawdza czy w $groupQueue$ znajduje się $G$ procesów. Jeżeli tak to proces o najmniejszym zegarze lamporta zostaje liderem
+3. Proces sprawdza czy w $groupQueue$ znajduje się $GROUPSIZE$ procesów. Jeżeli tak to proces o najmniejszym zegarze lamporta zostaje liderem
 4. Jeżeli proces jest liderem to: 
-    1. Wypełnia listę $groupMembers$ kolejnymi $G$ procesami z najmniejszymi zegarami lamporta
+    1. Wypełnia listę $groupMembers$ kolejnymi $GROUPSIZE$ procesami z najmniejszymi zegarami lamporta
     2. Wysyła do wszystkich procesów komunikat $GROUPFORMED$ wraz z listą $groupMembers$
     3. Poces usuwa ze słownika $groupQueue$ procesy z listy $groupMembers$
 5. Jeżeli proces nie jest liderem to:
@@ -50,15 +53,14 @@ Początkowo procesy znają wartości $P$, $G$, $T$ oraz $id$ wszystkich pozosta�
 
    
 
-
-
 ### 2. Zarządzanie zasobem (procesy które dobrały się w grupę)
 1. Jeżeli proces jest liderem to:
     1. Wysyła do wszystkich procesów komunikat $REQRES$
-    2. Proces zlicza otrzymane $ACKRES$ w $ackResCounter$. Gdy $ackResCounter = T-1$ proces dodaje się do słownika $resQueue$
+    2. Proces zlicza otrzymane $ACKRES$ w $ackResCounter$. Gdy $ackResCounter = SIZE-1$ proces dodaje się do słownika $resQueue$
     4. Jeżeli proces mieści się w grupie P procesów o najmniejszych wartościach zegara lamporta to wysyła komunikat $START$ do procesów z listy $groupMembers$
 3. Procesy reagujż na $REQRES$ dodając nadawcę do słownika $resQueue$ oraz odsyłając $ACKRES$
 4. Jeżeli proces nie jest liderem to oczekuje na komunikat $START$, po którym rozpoczyna korzystanie z zasobu
+
 
 
 ### 3. Zakończenie korzystania z zasobu (procesy które zakończyły korzystanie z zasobu)
@@ -68,3 +70,7 @@ Początkowo procesy znają wartości $P$, $G$, $T$ oraz $id$ wszystkich pozosta�
 2. Proces zeruje swoją listę $groupMembers$ oraz licznik $ackQueueCounter$ i $ackResCounter$
 3. Proces losuje z prawdopodobieństwem $breakProb$ to czy zostanie na niego nałożona przerwa. Jeżeli tak, to musi odczekać $breakTime$ ms.
 4. Proces ponownie rozpoczyna porces dobierania się w grupy
+
+## Uruchomienie projektu
+```make run``` - uruchomienie z printowaniem stanów i akcji\
+```make runDebug``` - uruchomienie z dodatkowym printowaniem komunikacji i zawartości kolejek

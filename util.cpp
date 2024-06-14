@@ -15,8 +15,8 @@ pthread_mutex_t waitingForStartMut = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t waitingForRelease = PTHREAD_MUTEX_INITIALIZER;
 
 std::vector<idLamportPair> groupQueue;
-int groupMembers[GROUPSIZE];
 std::vector<idLamportPair> resQueue;
+int groupMembers[GROUPSIZE];
 
 struct tagNames_t {
     const char *name;
@@ -33,8 +33,8 @@ const char *const tag2string(int tag) {
     return "<unknown>";
 }
 
-/* tworzy typ MPI_PAKIET_T */
-void inicjuj_typ_pakietu() {
+/* Create packet type */
+void init_packet() {
     int blocklengths[NITEMS] = {1,1,GROUPSIZE};
     MPI_Datatype typy[NITEMS] = {MPI_INT, MPI_INT, MPI_INT};
     MPI_Aint offsets[NITEMS]; 
@@ -62,18 +62,6 @@ void sendPacket(packet_t *pkt, int destination, int tag) {
     if (freepkt) free(pkt);
 }
 
-void sendPacketNoInc(packet_t *pkt, int destination, int tag) {
-    int freepkt = 0;
-     if (pkt == nullptr) { 
-        pkt = (packet_t*)malloc(sizeof(packet_t)); 
-        freepkt = 1;
-    }
-    pkt->src = rank;
-    MPI_Send( pkt, 1, MPI_PAKIET_T, destination, tag, MPI_COMM_WORLD);
-    debugln("[S] %s do %d", tag2string(tag), destination);
-    if (freepkt) free(pkt);
-}
-
 void sendPacketToAllNoInc(packet_t *pkt, int tag) {
     for (int i=0; i<= size - 1; i++)
         if (i!=rank) {
@@ -84,7 +72,7 @@ void sendPacketToAllNoInc(packet_t *pkt, int tag) {
             }
             pkt->src = rank;
             MPI_Send( pkt, 1, MPI_PAKIET_T, i, tag, MPI_COMM_WORLD);
-            debugln("Wysłano %s do %d", tag2string(tag), i);
+            debugln("[S] %s to %d", tag2string(tag), i);
             if (freepkt) free(pkt);
         }
 }
@@ -93,11 +81,11 @@ void sendPacketToAllWithMeNoInc(packet_t *pkt, int tag) {
     for (int i=0; i<= size - 1; i++) {
         pkt->src = rank;
         MPI_Send( pkt, 1, MPI_PAKIET_T, i, tag, MPI_COMM_WORLD);
-        debugln("Wysłano %s do %d", tag2string(tag), i);
+        debugln("[S] %s to %d", tag2string(tag), i);
     }
 }
 
-void changeState( state_t newState ) {
+void changeState(state_t newState) {
     pthread_mutex_lock( &stateMut );
     state = newState;
     pthread_mutex_unlock( &stateMut );

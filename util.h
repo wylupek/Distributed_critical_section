@@ -2,12 +2,15 @@
 #define UTILH
 #include "main.h"
 
+/* Parameters */
 #define RESNUM 2
 #define GROUPSIZE 2
 #define BREAKTIME 5
-#define BREAKPROB 25 // %
+#define BREAKPROB 25
 #define TIMEINSECTION 5
+#define SEC_IN_STATE 1
 
+/* Messages */
 #define REQQUEUE    1
 #define ACKQUEUE    2
 #define GROUPFORMED 3
@@ -16,7 +19,7 @@
 #define START       6
 #define END         7
 
-/* typ pakietu */
+/* Packet Type */
 typedef struct {
     int ts;
     int src;  
@@ -24,6 +27,7 @@ typedef struct {
 } packet_t;
 #define NITEMS 3
 
+/* States */
 typedef enum {
     WantGroup, WaitingForGroup, Leader, Member, WaitingForRes, InSection, Break
 } state_t;
@@ -47,15 +51,12 @@ extern pthread_mutex_t waitingForStartMut;
 extern pthread_mutex_t waitingForRelease;
 
 extern std::vector<idLamportPair> groupQueue;
-extern int groupMembers[GROUPSIZE];
 extern std::vector<idLamportPair> resQueue;
+extern int groupMembers[GROUPSIZE];
 
-void inicjuj_typ_pakietu();
-
-/* wysyłanie pakietu, skrót: wskaźnik do pakietu (0 oznacza stwórz pusty pakiet), do kogo, z jakim typem */
+void init_packet();
 void sendPacket(packet_t *pkt, int destination, int tag);
 void sendPacketToAllNoInc(packet_t *pkt, int tag);
-void sendPacketNoInc(packet_t *pkt, int destination, int tag);
 void sendPacketToAllWithMeNoInc(packet_t *pkt, int tag);
 void changeState(state_t);
 #endif
